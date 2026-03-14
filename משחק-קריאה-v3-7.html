@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הרפתקת הקריאה ביער 🌲</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Secular+One&family=Heebo:wght@400;600;700&display=swap');
+
+:root {
+  --forest-dark: #071a0f;
+  --forest-mid: #0f2e18;
+  --forest-light: #1a5c2a;
+  --leaf: #5abf4e;
+  --gold: #f4c430;
+  --amber: #ff9f1c;
+  --correct: #4ecf7a;
+  --wrong: #e05252;
+  --hint-color: #74b9ff;
+  --firefly: #c8ff6e;
+}
+
+* { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+  font-family: 'Heebo', sans-serif;
+  background: var(--forest-dark);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+  user-select: none;
+}
+
+/* ══════════════ HUD ══════════════ */
+#hud {
+  width:100%; max-width:960px;
+  background: rgba(5,18,10,0.95);
+  border-bottom: 2px solid rgba(90,191,78,0.25);
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  z-index: 20;
+  position: relative;
+}
+
+#stage-badge {
+  font-family:'Secular One',sans-serif;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--leaf);
+  color: var(--leaf);
+  background: rgba(90,191,78,0.08);
+  white-space: nowrap;
+}
+
+#mission-box {
+  flex:1; min-width:120px;
+  background: radial-gradient(circle at 30% 40%, #1e4a18, #071a0f);
+  border: 2px solid var(--gold);
+  border-radius: 16px;
+  padding: 8px 18px;
+  text-align: center;
+  position: relative;
+}
+#mission-label {
+  color: rgba(255,255,255,0.5);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+}
+#target-display {
+  font-family: 'Secular One', sans-serif;
+  font-size: 52px;
+  line-height: 1;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+#target-char {
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(244,196,48,0.5);
+  transition: all .3s;
+}
+#target-char.hidden-mode {
+  color: transparent;
+  text-shadow: none;
+  position: relative;
+}
+#target-char.hidden-mode::after {
+  content: '?';
+  position: absolute;
+  color: rgba(255,255,255,0.2);
+  font-size: 42px;
+}
+#hint-indicator {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--hint-color);
+  letter-spacing: 1px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .3s;
+}
+#hint-indicator.visible { opacity: 1; }
+
+#btn-hear {
+  background: linear-gradient(135deg, #1a5c2a, #2e8b3f);
+  border: none; border-radius: 50px;
+  color: white;
+  font-family: 'Secular One', sans-serif;
+  font-size: 15px;
+  padding: 11px 18px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(46,139,63,0.4);
+  transition: transform .1s, box-shadow .2s;
+}
+#btn-hear:hover { transform:scale(1.05); }
+#btn-hear:active { transform:scale(0.96); }
+
+#stats {
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+}
+#score-disp {
+  font-family:'Secular One',sans-serif;
+  font-size:22px; color:var(--gold);
+}
+#hearts-disp { font-size:20px; letter-spacing:3px; }
+
+#prog-area {
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+#found-txt { color:rgba(255,255,255,0.6); font-size:12px; white-space:nowrap; }
+#prog-wrap {
+  width:88px; height:10px;
+  background:rgba(255,255,255,0.08);
+  border-radius:99px; overflow:hidden;
+}
+#prog-bar {
+  height:100%;
+  background: linear-gradient(90deg,var(--correct),#8BC34A);
+  border-radius:99px;
+  transition: width .4s ease;
+  width:0%;
+}
+
+/* tracker hidden */
+#tracker-wrap { display:none; }
+
+/* ══════════════ GROWING TREE ══════════════ */
+#tree-wrap {
+  position: fixed;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  z-index: 15;
+  pointer-events: none;
+  width: 56px;
+}
+#tree-label {
+  font-family: 'Secular One', sans-serif;
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 1px;
+  text-align: center;
+  line-height: 1.3;
+}
+#tree-svg-wrap {
+  width: 56px;
+  height: 130px;
+  position: relative;
+}
+#tree-stage-name {
+  font-family: 'Secular One', sans-serif;
+  font-size: 9px;
+  color: var(--leaf);
+  text-align: center;
+  opacity: 0.85;
+  max-width: 56px;
+  word-break: break-word;
+}
+@keyframes leafPop {
+  0%  { transform: scale(0) rotate(-20deg); opacity:0; }
+  60% { transform: scale(1.3) rotate(5deg); opacity:1; }
+  100%{ transform: scale(1) rotate(0deg); opacity:1; }
+}
+.leaf-new { animation: leafPop 0.5s ease forwards; }
+
+/* ══════════════ SKIP BUTTON ══════════════ */
+#btn-skip {
+  background: rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 50px;
+  color: rgba(255,255,255,0.55);
+  font-family: 'Secular One', sans-serif;
+  font-size: 13px;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .2s;
+}
+#btn-skip:hover {
+  background: rgba(255,165,0,0.2);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+/* ══════════════ SCENE ══════════════ */
+#scene-wrap {
+  width:100%; max-width:960px;
+  position:relative; overflow:hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  flex:1;
+}
+#scene-svg { width:100%; height:auto; display:block; }
+#glyphs-layer { position:absolute; inset:0; pointer-events:none; }
+#firefly-canvas { position:absolute; top:0; left:0; pointer-events:none; z-index:4; }
+
+/* glyph items */
+.glyph-item {
+  position:absolute;
+  font-family:'Secular One',sans-serif;
+  cursor:pointer;
+  border-radius:10px;
+  padding:3px 11px;
+  line-height:1.3;
+  border: 2px solid transparent;
+  box-shadow: 0 3px 14px rgba(0,0,0,0.5);
+  pointer-events:all;
+  transition: transform .15s;
+  transform-origin:center;
+  z-index:5;
+}
+.glyph-item:hover { transform:scale(1.18) rotate(-2deg); }
+
+/* hidden mode: show ? instead of char */
+.glyph-item.audio-only { filter: blur(5px); pointer-events:all; }
+.glyph-item.audio-only:hover { filter:blur(3px); transform:scale(1.1); }
+
+.glyph-item.anim-correct {
+  animation: popCorrect .6s forwards;
+  pointer-events:none;
+}
+.glyph-item.anim-wrong {
+  animation: shakeIt .4s;
+}
+@keyframes popCorrect {
+  0%  { transform:scale(1); opacity:1; }
+  35% { transform:scale(1.8) rotate(12deg); opacity:1; }
+  70% { transform:scale(.9); }
+  100%{ transform:scale(1.4); opacity:0; }
+}
+@keyframes shakeIt {
+  0%,100%{transform:translateX(0);}
+  20%{transform:translateX(-9px) rotate(-3deg);}
+  40%{transform:translateX(9px) rotate(3deg);}
+  60%{transform:translateX(-6px);}
+  80%{transform:translateX(6px);}
+}
+
+/* star burst on correct */
+.star-burst {
+  position:absolute;
+  font-size:24px;
+  pointer-events:none;
+  z-index:10;
+  animation: burstOut .8s forwards;
+}
+@keyframes burstOut {
+  0%  { transform:scale(0) translate(0,0); opacity:1; }
+  60% { opacity:1; }
+  100%{ transform:scale(1.4) translate(var(--bx),var(--by)); opacity:0; }
+}
+
+/* ══════════════ FEEDBACK ══════════════ */
+#feedback {
+  position:fixed; top:50%; left:50%;
+  transform:translate(-50%,-50%) scale(0);
+  background:#071a0f;
+  border-radius:24px;
+  padding:22px 34px;
+  text-align:center;
+  font-family:'Secular One',sans-serif;
+  font-size:24px;
+  z-index:999;
+  box-shadow:0 20px 60px rgba(0,0,0,0.7);
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+  min-width:190px;
+  border:3px solid transparent;
+  pointer-events:none;
+}
+#feedback.show  { transform:translate(-50%,-50%) scale(1); }
+#feedback.correct  { border-color:var(--correct); color:var(--correct); }
+#feedback.wrong    { border-color:var(--wrong);   color:var(--wrong); }
+#fb-emoji { font-size:42px; display:block; margin-bottom:5px; }
+
+/* hint reveal animation */
+#hint-reveal {
+  position:fixed; top:50%; left:50%;
+  transform:translate(-50%,-50%) scale(0);
+  background:#0d2c3a;
+  border:3px solid var(--hint-color);
+  border-radius:24px;
+  padding:22px 36px;
+  text-align:center;
+  font-family:'Secular One',sans-serif;
+  z-index:998;
+  box-shadow:0 20px 60px rgba(0,0,0,0.7);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  pointer-events:none;
+}
+#hint-reveal.show { transform:translate(-50%,-50%) scale(1); }
+#hint-reveal-char { font-size:64px; color:var(--hint-color); display:block; }
+#hint-reveal-text { font-size:16px; color:rgba(255,255,255,0.7); margin-top:6px; }
+
+/* ══════════════ OVERLAYS ══════════════ */
+.overlay {
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,0.82); z-index:1000;
+  align-items:center; justify-content:center;
+  flex-direction:column; text-align:center; gap:16px; padding:24px;
+}
+.overlay.show { display:flex; }
+.overlay-card {
+  background:linear-gradient(160deg,#0f2e18,#071a0f);
+  border:2.5px solid var(--gold);
+  border-radius:28px;
+  padding:36px 40px;
+  max-width:400px; width:95%;
+  color:white;
+}
+.overlay-card h2 {
+  font-family:'Secular One',sans-serif;
+  font-size:32px; color:var(--gold);
+  margin-bottom:8px;
+}
+.overlay-card p { font-size:16px; color:rgba(255,255,255,0.8); line-height:1.6; margin-bottom:18px; }
+.overlay-card .big-emoji { font-size:58px; margin-bottom:10px; }
+.overlay-btn {
+  background:linear-gradient(135deg,var(--gold),var(--amber));
+  border:none; border-radius:50px;
+  font-family:'Secular One',sans-serif; font-size:20px;
+  color:#1a1a1a; padding:12px 38px;
+  cursor:pointer; box-shadow:0 6px 20px rgba(244,196,48,0.35);
+  transition:transform .1s;
+  display:inline-block; margin-top:4px;
+}
+.overlay-btn:hover { transform:scale(1.06); }
+.overlay-btn.green {
+  background:linear-gradient(135deg,#1a5c2a,#2e8b3f);
+  color:white;
+  box-shadow:0 6px 20px rgba(46,139,63,0.3);
+}
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="stage-badge">🌿 שלב אותיות</div>
+  <div id="mission-box">
+    <div id="mission-label">מה שמעת?</div>
+    <div id="target-display">
+      <span id="target-char" class="hidden-mode">א</span>
+      <span id="hint-indicator">💡 רמז גלוי</span>
+    </div>
+  </div>
+  <button id="btn-hear" onclick="speakTarget()">🔊 שמע שוב</button>
+  <button id="btn-skip" onclick="skipStage()" title="דלג לשלב הבא">דלג שלב ⏭</button>
+  <div id="prog-area">
+    <div id="found-txt">מצאת 0/3</div>
+    <div id="prog-wrap"><div id="prog-bar"></div></div>
+  </div>
+  <div id="stats">
+    <div id="score-disp">⭐ 0</div>
+    <div id="hearts-disp">❤️❤️❤️</div>
+  </div>
+</div>
+
+<!-- Tracker -->
+<div id="tracker-wrap">
+  <span id="tracker-label">מעקב:</span>
+</div>
+
+<!-- GROWING TREE progress indicator -->
+<div id="tree-wrap">
+  <div id="tree-label">התקדמות</div>
+  <div id="tree-svg-wrap">
+    <svg id="tree-svg" viewBox="0 0 60 130" xmlns="http://www.w3.org/2000/svg" style="width:60px;height:130px;">
+      <!-- ground -->
+      <ellipse cx="30" cy="122" rx="22" ry="7" fill="#1a4a10" opacity="0.7"/>
+      <!-- trunk - grows taller as progress increases -->
+      <rect id="tree-trunk" x="26" y="110" width="8" height="12" rx="3" fill="#5a2e0a"/>
+      <!-- branches group - populated by JS -->
+      <g id="tree-branches"></g>
+      <!-- foliage layers - populated by JS -->
+      <g id="tree-foliage"></g>
+      <!-- fruit/stars on tree - populated by JS -->
+      <g id="tree-fruits"></g>
+    </svg>
+  </div>
+  <div id="tree-stage-name">זֶרַע 🌱</div>
+</div>
+
+<!-- Forest Scene -->
+<div id="scene-wrap">
+  <canvas id="firefly-canvas"></canvas>
+  <svg id="scene-svg" viewBox="0 0 960 560" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#040e08"/>
+        <stop offset="55%" stop-color="#0b2a16"/>
+        <stop offset="100%" stop-color="#155224"/>
+      </linearGradient>
+      <radialGradient id="moonG" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#fffde0"/>
+        <stop offset="100%" stop-color="#e8c84a"/>
+      </radialGradient>
+      <radialGradient id="moonAura" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="rgba(210,255,150,0.18)"/>
+        <stop offset="100%" stop-color="rgba(210,255,150,0)"/>
+      </radialGradient>
+      <filter id="glow3">
+        <feGaussianBlur stdDeviation="4" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="softBlur">
+        <feGaussianBlur stdDeviation="1.5"/>
+      </filter>
+    </defs>
+
+    <!-- Sky -->
+    <rect width="960" height="560" fill="url(#skyG)"/>
+
+    <!-- Stars -->
+    <g fill="white">
+      <circle cx="30"  cy="28" r="1.5" opacity=".7"/>
+      <circle cx="90"  cy="14" r="1"   opacity=".55"/>
+      <circle cx="180" cy="38" r="1.5" opacity=".8"/>
+      <circle cx="270" cy="18" r="1"   opacity=".5"/>
+      <circle cx="360" cy="10" r="2"   opacity=".85"/>
+      <circle cx="450" cy="32" r="1.5" opacity=".6"/>
+      <circle cx="540" cy="16" r="1"   opacity=".7"/>
+      <circle cx="630" cy="40" r="1.5" opacity=".65"/>
+      <circle cx="720" cy="22" r="1"   opacity=".8"/>
+      <circle cx="800" cy="8"  r="2"   opacity=".9"/>
+      <circle cx="870" cy="34" r="1.5" opacity=".55"/>
+      <circle cx="930" cy="18" r="1"   opacity=".7"/>
+      <circle cx="130" cy="55" r="1"   opacity=".45"/>
+      <circle cx="490" cy="58" r="1.5" opacity=".5"/>
+      <circle cx="700" cy="52" r="1"   opacity=".6"/>
+    </g>
+
+    <!-- Moon -->
+    <circle cx="800" cy="75" r="72"  fill="url(#moonAura)"/>
+    <circle cx="800" cy="75" r="42"  fill="url(#moonG)" filter="url(#glow3)"/>
+    <circle cx="818" cy="62" r="12"  fill="rgba(190,150,20,0.15)"/>
+    <circle cx="792" cy="84" r="8"   fill="rgba(190,150,20,0.1)"/>
+
+    <!-- Far silhouette trees -->
+    <g fill="#081c0e" opacity=".5">
+      <polygon points="0,380   42,210  84,380"/>
+      <polygon points="55,380  100,192 145,380"/>
+      <polygon points="130,380 175,200 220,380"/>
+      <polygon points="200,380 248,188 296,380"/>
+      <polygon points="270,380 320,196 370,380"/>
+      <polygon points="345,380 393,204 441,380"/>
+      <polygon points="418,380 465,192 512,380"/>
+      <polygon points="490,380 538,200 586,380"/>
+      <polygon points="562,380 610,188 658,380"/>
+      <polygon points="640,380 685,196 730,380"/>
+      <polygon points="710,380 758,204 806,380"/>
+      <polygon points="782,380 830,192 878,380"/>
+      <polygon points="852,380 900,200 948,380"/>
+      <polygon points="910,380 950,215 990,380"/>
+    </g>
+
+    <!-- Left big oak -->
+    <rect x="20" y="290" width="24" height="270" fill="#3a1c08"/>
+    <line x1="32" y1="310" x2="0"   y2="268" stroke="#3a1c08" stroke-width="9"/>
+    <line x1="32" y1="335" x2="72"  y2="290" stroke="#3a1c08" stroke-width="8"/>
+    <line x1="32" y1="360" x2="-5"  y2="332" stroke="#3a1c08" stroke-width="5"/>
+    <ellipse cx="32"  cy="258" rx="62" ry="52" fill="#154d12"/>
+    <ellipse cx="0"   cy="266" rx="36" ry="30" fill="#1c6018"/>
+    <ellipse cx="75"  cy="288" rx="34" ry="28" fill="#154d12"/>
+    <ellipse cx="-2"  cy="330" rx="28" ry="22" fill="#1c6018"/>
+    <ellipse cx="58"  cy="246" rx="30" ry="25" fill="#22721e"/>
+
+    <!-- Center tall pine -->
+    <rect x="465" y="305" width="18" height="255" fill="#42200c"/>
+    <polygon points="474,110 518,305 430,305" fill="#143e10"/>
+    <polygon points="474,158 512,310 436,310" fill="#1a5016"/>
+    <polygon points="474,205 507,318 441,318" fill="#20621b"/>
+    <polygon points="474,255 500,328 448,328" fill="#277420"/>
+
+    <!-- Right big oak -->
+    <rect x="908" y="270" width="26" height="290" fill="#3a1c08"/>
+    <line x1="921" y1="292" x2="876" y2="248" stroke="#3a1c08" stroke-width="10"/>
+    <line x1="921" y1="318" x2="960" y2="272" stroke="#3a1c08" stroke-width="8"/>
+    <ellipse cx="921" cy="236" rx="65" ry="55" fill="#154d12"/>
+    <ellipse cx="876" cy="246" rx="38" ry="32" fill="#1c6018"/>
+    <ellipse cx="960" cy="268" rx="32" ry="26" fill="#154d12"/>
+    <ellipse cx="905" cy="224" rx="34" ry="28" fill="#22721e"/>
+
+    <!-- Left birch -->
+    <rect x="148" y="325" width="14" height="235" fill="#c4b090"/>
+    <rect x="148" y="340" width="14" height="4" fill="#5a4830" opacity=".5"/>
+    <rect x="148" y="368" width="14" height="3" fill="#5a4830" opacity=".4"/>
+    <rect x="148" y="400" width="14" height="4" fill="#5a4830" opacity=".5"/>
+    <ellipse cx="155" cy="312" rx="40" ry="36" fill="#154d12"/>
+    <ellipse cx="130" cy="320" rx="25" ry="21" fill="#22721e"/>
+    <ellipse cx="180" cy="318" rx="23" ry="19" fill="#154d12"/>
+
+    <!-- Right birch -->
+    <rect x="790" y="316" width="14" height="244" fill="#c4b090"/>
+    <rect x="790" y="333" width="14" height="4" fill="#5a4830" opacity=".5"/>
+    <rect x="790" y="362" width="14" height="3" fill="#5a4830" opacity=".4"/>
+    <ellipse cx="797" cy="302" rx="42" ry="38" fill="#154d12"/>
+    <ellipse cx="772" cy="312" rx="27" ry="23" fill="#22721e"/>
+    <ellipse cx="822" cy="310" rx="25" ry="21" fill="#154d12"/>
+
+    <!-- Extra mid pines -->
+    <rect x="306" y="346" width="15" height="214" fill="#3a1c08"/>
+    <polygon points="313,195 354,346 272,346" fill="#154d12"/>
+    <polygon points="313,248 347,350 279,350" fill="#20621b"/>
+
+    <rect x="650" y="340" width="15" height="220" fill="#3a1c08"/>
+    <polygon points="657,198 695,340 619,340" fill="#154d12"/>
+    <polygon points="657,252 688,345 626,345" fill="#20621b"/>
+
+    <!-- Ground -->
+    <rect x="0" y="466" width="960" height="94" fill="#0b2e10"/>
+    <ellipse cx="480" cy="466" rx="620" ry="35" fill="#0d3312"/>
+
+    <!-- Grass tufts -->
+    <g fill="#1a5218">
+      <polygon points="0,466 9,444 18,466"/>
+      <polygon points="22,466 30,446 38,466"/>
+      <polygon points="50,466 58,448 66,466"/>
+      <polygon points="85,466 93,444 101,466"/>
+      <polygon points="120,466 128,446 136,466"/>
+      <polygon points="160,466 168,444 176,466"/>
+      <polygon points="210,466 218,446 226,466"/>
+      <polygon points="265,466 273,444 281,466"/>
+      <polygon points="320,466 328,448 336,466"/>
+      <polygon points="380,466 388,444 396,466"/>
+      <polygon points="442,466 450,446 458,466"/>
+      <polygon points="505,466 513,448 521,466"/>
+      <polygon points="565,466 573,444 581,466"/>
+      <polygon points="625,466 633,446 641,466"/>
+      <polygon points="680,466 688,444 696,466"/>
+      <polygon points="735,466 743,448 751,466"/>
+      <polygon points="790,466 798,444 806,466"/>
+      <polygon points="845,466 853,446 861,466"/>
+      <polygon points="890,466 898,444 906,466"/>
+      <polygon points="930,466 938,448 946,466"/>
+    </g>
+    <g fill="#2a7026" opacity=".65">
+      <polygon points="10,466 16,450 22,466"/>
+      <polygon points="68,466 74,452 80,466"/>
+      <polygon points="140,466 146,450 152,466"/>
+      <polygon points="240,466 246,452 252,466"/>
+      <polygon points="360,466 366,450 372,466"/>
+      <polygon points="480,466 486,452 492,466"/>
+      <polygon points="600,466 606,450 612,466"/>
+      <polygon points="718,466 724,452 730,466"/>
+      <polygon points="820,466 826,450 832,466"/>
+      <polygon points="920,466 926,452 932,466"/>
+    </g>
+
+    <!-- Path stones -->
+    <ellipse cx="418" cy="480" rx="18" ry="10" fill="#2a2a2a" opacity=".6"/>
+    <ellipse cx="460" cy="488" rx="14" ry="8"  fill="#333"    opacity=".5"/>
+    <ellipse cx="500" cy="480" rx="16" ry="9"  fill="#2a2a2a" opacity=".6"/>
+    <ellipse cx="540" cy="487" rx="12" ry="7"  fill="#333"    opacity=".5"/>
+
+    <!-- Mushrooms -->
+    <rect x="208" y="446" width="11" height="22" fill="#e8d8b0"/>
+    <ellipse cx="213" cy="447" rx="26" ry="17" fill="#c0392b"/>
+    <circle cx="202" cy="442" r="3"   fill="white" opacity=".7"/>
+    <circle cx="218" cy="438" r="4.5" fill="white" opacity=".8"/>
+    <circle cx="230" cy="445" r="3"   fill="white" opacity=".6"/>
+
+    <rect x="570" y="450" width="8"  height="18" fill="#e8d8b0"/>
+    <ellipse cx="574" cy="451" rx="16" ry="10" fill="#c0392b"/>
+    <circle cx="567" cy="447" r="2.5" fill="white" opacity=".7"/>
+    <circle cx="578" cy="445" r="3"   fill="white" opacity=".8"/>
+    <rect x="582" y="453" width="7"  height="14" fill="#e8d8b0"/>
+    <ellipse cx="585" cy="454" rx="13" ry="8"  fill="#e74c3c"/>
+
+    <!-- Owl on branch -->
+    <line x1="334" y1="295" x2="400" y2="308" stroke="#42200c" stroke-width="9"/>
+    <ellipse cx="352" cy="280" rx="17" ry="21" fill="#7a5638"/>
+    <circle  cx="352" cy="261" r="15" fill="#8b6442"/>
+    <polygon points="344,251 341,240 348,250" fill="#7a5638"/>
+    <polygon points="360,251 363,240 356,250" fill="#7a5638"/>
+    <circle cx="346" cy="260" r="5.5" fill="#ffe0a0"/>
+    <circle cx="358" cy="260" r="5.5" fill="#ffe0a0"/>
+    <circle cx="346" cy="260" r="2.8" fill="#111"/>
+    <circle cx="358" cy="260" r="2.8" fill="#111"/>
+    <circle cx="347" cy="259" r="1"   fill="white"/>
+    <circle cx="359" cy="259" r="1"   fill="white"/>
+    <polygon points="352,265 348,272 356,272" fill="#d4960a"/>
+    <ellipse cx="338" cy="282" rx="11" ry="15" fill="#624020" transform="rotate(-15,338,282)"/>
+    <ellipse cx="366" cy="282" rx="11" ry="15" fill="#624020" transform="rotate(15,366,282)"/>
+
+    <!-- Fox peek -->
+    <ellipse cx="84" cy="470" rx="30" ry="20" fill="#c0400a"/>
+    <circle  cx="84" cy="456" r="16" fill="#d45010"/>
+    <polygon points="75,445 71,432 82,444" fill="#d45010"/>
+    <polygon points="93,445 97,432 86,444" fill="#d45010"/>
+    <circle cx="78" cy="454" r="3.5" fill="#111"/>
+    <circle cx="90" cy="454" r="3.5" fill="#111"/>
+    <circle cx="79" cy="453" r="1.2" fill="white"/>
+    <circle cx="91" cy="453" r="1.2" fill="white"/>
+    <ellipse cx="84" cy="461" rx="8" ry="6" fill="#f0b090"/>
+
+    <!-- Deer silhouette -->
+    <g fill="#0f3a14" opacity=".5">
+      <ellipse cx="706" cy="446" rx="32" ry="19"/>
+      <rect x="724" y="425" width="11" height="22" rx="4"/>
+      <ellipse cx="735" cy="421" rx="13" ry="11"/>
+      <ellipse cx="729" cy="412" rx="5.5" ry="9" transform="rotate(-20,729,412)"/>
+      <ellipse cx="742" cy="411" rx="4.5" ry="8" transform="rotate(15,742,411)"/>
+      <rect x="681" y="460" width="8" height="24" rx="3"/>
+      <rect x="695" y="462" width="8" height="22" rx="3"/>
+      <rect x="715" y="462" width="8" height="22" rx="3"/>
+      <rect x="728" y="460" width="8" height="24" rx="3"/>
+    </g>
+
+    <!-- Stream -->
+    <path d="M 390,560 Q 412,534 435,522 Q 462,508 484,516 Q 512,528 534,520 Q 558,510 575,520 L 575,560Z"
+          fill="#083850" opacity=".75"/>
+    <path d="M 406,560 Q 428,538 448,526 Q 472,514 492,520 Q 518,532 540,524 L 540,560Z"
+          fill="#0a4a62" opacity=".5"/>
+    <line x1="420" y1="535" x2="444" y2="528" stroke="rgba(120,210,255,.35)" stroke-width="2"/>
+    <line x1="458" y1="522" x2="480" y2="518" stroke="rgba(120,210,255,.3)"  stroke-width="2"/>
+    <line x1="500" y1="520" x2="522" y2="524" stroke="rgba(120,210,255,.35)" stroke-width="2"/>
+
+    <!-- Magic mushroom ring -->
+    <circle cx="480" cy="472" r="58" fill="none" stroke="#1e7a20" stroke-width="2" stroke-dasharray="5,5" opacity=".3"/>
+
+    <!-- Rabbit peek -->
+    <ellipse cx="528" cy="466" rx="14" ry="10" fill="#d0c8b8"/>
+    <ellipse cx="524" cy="448" rx="6"  ry="14" fill="#d0c8b8"/>
+    <ellipse cx="533" cy="447" rx="6"  ry="13" fill="#d0c8b8"/>
+    <circle  cx="524" cy="456" r="2.5" fill="#c87090"/>
+    <circle  cx="533" cy="455" r="2.5" fill="#c87090"/>
+    <ellipse cx="528" cy="462" rx="5"  ry="4"  fill="#e8d8d0"/>
+  </svg>
+
+  <div id="glyphs-layer"></div>
+</div>
+
+<!-- WELCOME / AUDIO UNLOCK -->
+<div class="overlay show" id="ov-welcome">
+  <div class="overlay-card">
+    <div class="big-emoji">🌲</div>
+    <h2>הרפתקת הקריאה ביער</h2>
+    <p>תשמע קול — ואז תמצא את האות הנכונה ביער!<br><br>
+    אחרי 2 טעויות תופיע רמז.<br>
+    לחץ על 🔊 בכל עת כדי לשמוע שוב.</p>
+    <button class="overlay-btn" onclick="startGame()">בואו נתחיל! 🌿</button>
+  </div>
+</div>
+<div id="feedback">
+  <span id="fb-emoji">⭐</span>
+  <span id="fb-text">כל הכבוד!</span>
+</div>
+
+<!-- HINT REVEAL -->
+<div id="hint-reveal">
+  <span id="hint-reveal-char">א</span>
+  <span id="hint-reveal-text">הנה הרמז! עכשיו מצא אותו!</span>
+</div>
+
+<!-- LEVEL COMPLETE -->
+<div class="overlay" id="ov-level">
+  <div class="overlay-card">
+    <div class="big-emoji" id="ov-emoji">🌟</div>
+    <h2 id="ov-title">כל הכבוד!</h2>
+    <div style="font-size:32px;margin-bottom:12px" id="ov-stars">⭐⭐⭐</div>
+    <p id="ov-msg">מצאת את כל האותיות!</p>
+    <button class="overlay-btn" onclick="nextLevel()">המשך ←</button>
+  </div>
+</div>
+
+<!-- STAGE TRANSITION -->
+<div class="overlay" id="ov-stage">
+  <div class="overlay-card">
+    <div class="big-emoji">🍄</div>
+    <h2 id="stage-title">מעולה! עוברים לשלב חדש!</h2>
+    <p id="stage-desc">עכשיו תחפש הברות שלמות.</p>
+    <button class="overlay-btn" id="stage-btn" onclick="dismissStageTransition()">יאללה! 🌿</button>
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div class="overlay" id="ov-gameover">
+  <div class="overlay-card">
+    <div class="big-emoji">🦊</div>
+    <h2 style="color:var(--wrong)">אוי...</h2>
+    <p>נגמרו הלבבות 💔<br>השועל שלח חיבוק חם!</p>
+    <button class="overlay-btn green" onclick="restartGame()">שחק שוב 🌿</button>
+  </div>
+</div>
+
+<script>
+// ╔══════════════════════════════════════════════════════╗
+// ║              CURRICULUM DATA                         ║
+// ╚══════════════════════════════════════════════════════╝
+
+// ── STAGE 1: Letters ──
+const LETTERS = [
+  {char:'א', speak:'אָלֶף', confusables:['ע','ח','ה']},
+  {char:'ב', speak:'בֵּית', confusables:['כ','ד','פ']},
+  {char:'ג', speak:'גִּימֶל', confusables:['כ','נ','ד']},
+  {char:'ד', speak:'דָּלֶת', confusables:['ר','ב','כ']},
+  {char:'ה', speak:'הֵא', confusables:['ח','ע','א']},
+  {char:'ו', speak:'וָו', confusables:['ן','י','ז']},
+  {char:'ז', speak:'זַיִן', confusables:['ו','ג','נ']},
+  {char:'ח', speak:'חֵית', confusables:['ה','כ','ע']},
+  {char:'ט', speak:'טֵית', confusables:['מ','פ','ת']},
+  {char:'י', speak:'יוֹד', confusables:['ו','ז','ן']},
+  {char:'כ', speak:'כַּף', confusables:['ב','ח','פ']},
+  {char:'ל', speak:'לָמֶד', confusables:['ד','ר','ן']},
+  {char:'מ', speak:'מֵם', confusables:['נ','ס','ם']},
+  {char:'נ', speak:'נוּן', confusables:['מ','ז','כ']},
+  {char:'ס', speak:'סָמֶך', confusables:['מ','ע','ח']},
+  {char:'ע', speak:'עַיִן', confusables:['ח','ה','א']},
+  {char:'פ', speak:'פֵּא', confusables:['כ','ב','ף']},
+  {char:'צ', speak:'צָדִי', confusables:['מ','פ','ע']},
+  {char:'ק', speak:'קוֹף', confusables:['פ','כ','ד']},
+  {char:'ר', speak:'רֵישׁ', confusables:['ד','ן','ו']},
+  {char:'ש', speak:'שִׁין', confusables:['ס','ת','ה']},
+  {char:'ת', speak:'תָּו', confusables:['ח','ה','ש']},
+];
+
+// ── STAGE 2: Syllable clusters ──
+// Each cluster: { nikudName, items:[{syl, speak}], confusableNikud:[others]}
+const SYLLABLE_CLUSTERS = [
+  // Patach group (split into 3 clusters)
+  { name:'פַּתַח', nikud:'פַּ', letters:['בַ','מַ','שַׁ'], confuse:['בֶ','מֶ','שֶׁ','בִ','מִ'] },
+  { name:'פַּתַח', nikud:'פַּ', letters:['לַ','גַ','דַ'], confuse:['לֶ','גֶ','דֶ','לִ','גִ'] },
+  { name:'פַּתַח', nikud:'פַּ', letters:['כַּ','נַ','רַ','תַ'], confuse:['כֶּ','נֶ','רֶ','תֶ'] },
+  // Kamatz group
+  { name:'קָמַץ', nikud:'קָ', letters:['בָּ','מָ','שָׁ'], confuse:['בַ','מַ','שַׁ','בֶּ','מֶ'] },
+  { name:'קָמַץ', nikud:'קָ', letters:['לָ','דָּ','תָּ'], confuse:['לַ','דַּ','תַ','לֶ'] },
+  // Tzere group
+  { name:'צֵרֵי', nikud:'צֵ', letters:['בֵּ','מֵ','לֵ'], confuse:['בֶּ','מֶ','לֶ','בָּ'] },
+  { name:'צֵרֵי', nikud:'צֵ', letters:['שֵׁ','רֵ','כֵּ'], confuse:['שֶׁ','רֶ','כֶּ','שָׁ'] },
+  // Segol group
+  { name:'סֶגּוֹל', nikud:'סֶ', letters:['בֶּ','מֶ','שֶׁ'], confuse:['בַ','מַ','שַׁ','בֵּ'] },
+  { name:'סֶגּוֹל', nikud:'סֶ', letters:['לֶ','דֶּ','נֶ','תֶ'], confuse:['לַ','דַּ','נַ','תַ'] },
+  // Hirik group
+  { name:'חִירִיק', nikud:'חִ', letters:['בִּ','מִ','לִ'], confuse:['בֶּ','מֶ','לֶ','בַ'] },
+  { name:'חִירִיק', nikud:'חִ', letters:['שִׁ','נִ','כִּ','רִ'], confuse:['שֶׁ','נֶ','כֶּ','רֶ'] },
+  // Holam group
+  { name:'חוֹלָם', nikud:'חֹ', letters:['בֹּ','מֹ','לֹ'], confuse:['בוּ','מוּ','לוּ','בָּ'] },
+  { name:'חוֹלָם', nikud:'חֹ', letters:['שֹׁ','נֹ','דֹּ','תֹ'], confuse:['שׁוּ','נוּ','דוּ'] },
+  // Shuruk/Kubutz group
+  { name:'שׁוּרוּק', nikud:'שׁוּ', letters:['בּוּ','מוּ','לוּ'], confuse:['בֹּ','מֹ','לֹ','בִּ'] },
+  { name:'שׁוּרוּק', nikud:'שׁוּ', letters:['שׁוּ','נוּ','כּוּ','רוּ'], confuse:['שֹׁ','נֹ','כֹּ'] },
+];
+
+// ── STAGE 3: Words (short, decodable) ──
+const WORD_CLUSTERS = [
+  { name:'מילים קצרות - CVC', items:['בַּת','דַּב','יַם','שַׁר','מַר'], confuse:['בַּד','דַּת','יַד','שַׁם','מַד'] },
+  { name:'מילים - CVCe', items:['בַּיִת','יֶלֶד','כֶּלֶב','עֶרֶב'], confuse:['בַּיִד','יֶלֶג','כֶּלֶד','עֶרֶד'] },
+  { name:'מילים - אוֹ', items:['אוֹר','שׁוֹר','דּוֹב','יוֹם'], confuse:['אוּר','שׁוּר','דּוּב','יוּם'] },
+  { name:'מילים - CVCVC', items:['חָלָב','שָׁלוֹם','יֶרֶק','אֹכֶל'], confuse:['חָלָד','שָׁלוֹן','יֶרֶג','אֹכֶד'] },
+  { name:'מילים ארוכות יותר', items:['יַלְדָּה','סֻפְגָּנִיָּה','כּוֹכָב','פַּרְפַּר'], confuse:['יַלְדֶּה','כּוֹכָד','פַּרְפַּד'] },
+];
+
+// ── STAGE 4: Sentences ──
+function generateSentences(wordCount){
+  const pool = [
+    {words:['הַכֶּלֶב','רָץ'],                speak:'הַכֶּלֶב רָץ',         confuse:['הַכֶּלֶד','רָד','הַכֶּלֶב','דָץ']},
+    {words:['יֶלֶד','אוֹכֵל'],               speak:'יֶלֶד אוֹכֵל',        confuse:['יֶלֶג','אוֹכֵד','יֶלֶד','אוּכֵל']},
+    {words:['הַשֶּׁמֶשׁ','זוֹרַחַת'],          speak:'הַשֶּׁמֶשׁ זוֹרַחַת',  confuse:['הַשֶּׁמֶס','זוֹרַחַד']},
+    {words:['אֲנִי','אוֹהֵב','לִקְרֹא'],      speak:'אֲנִי אוֹהֵב לִקְרֹא', confuse:['אֲנִי','אוֹהֵב','לִכְרֹא']},
+    {words:['הַיַּלְדָּה','שָׁרָה','שִׁיר'],    speak:'הַיַּלְדָּה שָׁרָה שִׁיר', confuse:['הַיַּלְדָּה','שָׁרַד','שִׁין']},
+    {words:['אָבָא','וְאִמָּא','בַּבַּיִת'],    speak:'אָבָא וְאִמָּא בַּבַּיִת', confuse:['אָבָד','וְאִמָּה','בַּבַּיִד']},
+    {words:['הַחָתוּל','יָשַׁן','עַל','הַסַּפָּה'], speak:'הַחָתוּל יָשַׁן עַל הַסַּפָּה', confuse:['הַחָתוּד','יָשַׁר','הַסַּפָּד']},
+    {words:['הַיּוֹם','יוֹם','טוֹב'],          speak:'הַיּוֹם יוֹם טוֹב',   confuse:['הַיּוֹד','יוֹב','טוֹם']},
+  ];
+  return pool.filter(s => s.words.length <= wordCount + 1);
+}
+
+// ╔══════════════════════════════════════════════════════╗
+// ║              ADAPTIVE ENGINE                         ║
+// ╚══════════════════════════════════════════════════════╝
+
+const STAGES = ['letters','syllables','words','sentences'];
+let stageIdx = 0;    // 0=letters, 1=syllables, 2=words, 3=sentences
+let sentenceWordCount = 2;
+
+// Performance tracking per item: { correct, wrong, lastSeen }
+const perf = {};          // key: char/syllable
+const MASTERY_CORRECT = 4;
+const STRUGGLE_WRONG  = 2;
+const REVISIT_AFTER   = 3; // revisit a struggling item after N levels
+
+// Queue system
+let queue = [];    // array of curriculum items to present
+let queuePos = 0;
+let currentItem = null; // { type, target, speak, pool, needed, hint }
+
+// In-level state
+let foundCount = 0;
+let neededCount = 0;
+let wrongCountThisLevel = 0;  // wrong clicks this level
+let hintShown = false;        // hint revealed?
+let hearts = 3;
+let score = 0;
+let totalLevels = 0;
+
+// Confusables shown on screen
+let screenItems = []; // {el, glyph, isCorrect}
+
+// ── Perf helpers ──
+function getPerf(key){ return perf[key] || (perf[key]={correct:0,wrong:0,lastSeen:0}); }
+function isMastered(key){ return getPerf(key).correct >= MASTERY_CORRECT; }
+function isStruggling(key){ const p=getPerf(key); return p.wrong>=STRUGGLE_WRONG && !isMastered(key); }
+
+// ── Build queue ──
+function buildQueue(){
+  queue=[];
+  const stage = STAGES[stageIdx];
+
+  if(stage==='letters'){
+    // Prioritize: struggling first, then unmastered, then masters for review
+    const struggling = LETTERS.filter(l=>isStruggling(l.char));
+    const unmastered  = LETTERS.filter(l=>!isMastered(l.char)&&!isStruggling(l.char));
+    const mastered    = LETTERS.filter(l=>isMastered(l.char));
+    let pool = [...struggling, ...shuffle(unmastered), ...shuffle(mastered).slice(0,3)];
+    if(pool.length===0) pool=[...LETTERS];
+    // interleave: every 4th item revisit a struggling one
+    pool.forEach((l,i)=>{
+      queue.push({type:'letter', target:l.char, speak:l.speak, confusables:l.confusables, needed:3});
+    });
+  }
+
+  else if(stage==='syllables'){
+    // Go through clusters; revisit struggling syllables
+    SYLLABLE_CLUSTERS.forEach(cl=>{
+      const struggling = cl.letters.filter(s=>isStruggling(s));
+      const fresh      = cl.letters.filter(s=>!isMastered(s)&&!isStruggling(s));
+      // Put struggling first in cluster, then fresh
+      const order = [...struggling,...fresh,...cl.letters.filter(s=>isMastered(s)).slice(0,1)];
+      order.forEach(syl=>{
+        queue.push({type:'syllable', target:syl, speak:syl, clusterName:cl.name,
+                    confusables:cl.confuse, needed:3});
+      });
+    });
+    // Interleave revisits
+    injectRevisits();
+  }
+
+  else if(stage==='words'){
+    WORD_CLUSTERS.forEach(cl=>{
+      cl.items.forEach(w=>{
+        queue.push({type:'word', target:w, speak:w, groupName:cl.name,
+                    confusables:cl.confuse, needed:2});
+      });
+    });
+    injectRevisits();
+  }
+
+  else if(stage==='sentences'){
+    const sents = generateSentences(sentenceWordCount);
+    sents.forEach(s=>{
+      queue.push({type:'sentence', target:s.words.join(' '), speak:s.speak,
+                  confusables:s.confuse, needed:2});
+    });
+  }
+
+  queuePos=0;
+}
+
+function injectRevisits(){
+  // After every 4 items insert a struggling revisit if any
+  const struggling = queue.filter(q=>isStruggling(q.target));
+  if(struggling.length===0) return;
+  let inserted=0;
+  for(let i=queue.length-1;i>0;i-=4){
+    if(inserted>=struggling.length) break;
+    queue.splice(i,0,{...struggling[inserted++], revisit:true});
+  }
+}
+
+function nextQueueItem(){
+  if(queuePos>=queue.length){
+    // Check if we should advance stage
+    if(shouldAdvanceStage()) { showStageTransition(); return; }
+    // Otherwise rebuild queue (loop with updated perf)
+    buildQueue();
+  }
+  currentItem = queue[queuePos++];
+  totalLevels++;
+}
+
+function shouldAdvanceStage(){
+  const stage=STAGES[stageIdx];
+  if(stage==='letters'){
+    // Advance when ≥15 letters mastered
+    return LETTERS.filter(l=>isMastered(l.char)).length >= 15;
+  }
+  if(stage==='syllables'){
+    const allSyls = SYLLABLE_CLUSTERS.flatMap(c=>c.letters);
+    return allSyls.filter(s=>isMastered(s)).length >= allSyls.length * 0.7;
+  }
+  if(stage==='words'){
+    const allWords = WORD_CLUSTERS.flatMap(c=>c.items);
+    return allWords.filter(w=>isMastered(w)).length >= allWords.length * 0.7;
+  }
+  return false;
+}
+
+// ── Shuffle ──
+function shuffle(a){ let arr=[...a]; for(let i=arr.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];} return arr; }
+
+// ╔══════════════════════════════════════════════════════╗
+// ║              BUILD LEVEL                             ║
+// ╚══════════════════════════════════════════════════════╝
+
+const POSITIONS = [
+  {x:10,y:10},{x:18,y:25},{x:12,y:45},{x:20,y:62},{x:14,y:78},
+  {x:26,y:15},{x:32,y:35},{x:28,y:55},{x:24,y:72},
+  {x:38,y:8}, {x:34,y:30},{x:40,y:52},{x:30,y:70},
+  {x:46,y:18},{x:50,y:38},{x:44,y:60},{x:52,y:78},
+  {x:58,y:12},{x:62,y:32},{x:56,y:55},{x:64,y:74},
+  {x:68,y:20},{x:72,y:40},{x:66,y:62},{x:70,y:80},
+  {x:76,y:10},{x:80,y:28},{x:74,y:50},{x:78,y:70},
+  {x:84,y:16},{x:88,y:36},{x:82,y:58},{x:86,y:78},
+  {x:91,y:10},{x:93,y:42},{x:90,y:68},
+];
+
+const COLORS = [
+  {bg:'#FFD700',c:'#1a1a1a',b:'#b8960a'},
+  {bg:'#4ecf7a',c:'#0a2a10',b:'#27ae60'},
+  {bg:'#74b9ff',c:'#0a1a2e',b:'#2980b9'},
+  {bg:'#fd79a8',c:'#2d0a18',b:'#c0392b'},
+  {bg:'#ffeaa7',c:'#2d2010',b:'#f39c12'},
+  {bg:'#a29bfe',c:'#1a0a2e',b:'#6c5ce7'},
+  {bg:'#55efc4',c:'#0a2a1e',b:'#00b894'},
+  {bg:'#fab1a0',c:'#2a0a08',b:'#e17055'},
+  {bg:'#dfe6e9',c:'#2d3436',b:'#b2bec3'},
+];
+
+function buildLevel(){
+  nextQueueItem();
+  if(!currentItem) return;
+
+  foundCount=0; neededCount=currentItem.needed;
+  wrongCountThisLevel=0; hintShown=false;
+
+  // HUD
+  const stageNames={letters:'🌿 שלב אותיות',syllables:'🍄 שלב הברות',words:'📖 שלב מילים',sentences:'📜 שלב משפטים'};
+  document.getElementById('stage-badge').textContent = stageNames[STAGES[stageIdx]]||'';
+  document.getElementById('target-char').textContent = currentItem.target;
+  document.getElementById('target-char').className = 'hidden-mode'; // hide by default
+  document.getElementById('hint-indicator').className=''; // hide hint label
+  const missionLabels={letters:'מה שמעת?',syllables:'מה ההברה?',words:'מה המילה?',sentences:'מה המשפט?'};
+  document.getElementById('mission-label').textContent=missionLabels[STAGES[stageIdx]]||'מה שמעת?';
+  updateHUD();
+  updateTracker();
+
+  // Build pool
+  const correct = Array(neededCount).fill(currentItem.target);
+  const confuse  = shuffle(currentItem.confusables||[]).slice(0,Math.min(5,currentItem.confusables?.length||0));
+  const pool     = shuffle([...correct.map(g=>({g,ok:true})), ...confuse.map(g=>({g,ok:false}))]);
+  const positions= shuffle(POSITIONS).slice(0,pool.length);
+
+  screenItems=[];
+  const layer=document.getElementById('glyphs-layer');
+  layer.innerHTML='';
+
+  pool.forEach((item,i)=>{
+    const pos=positions[i];
+    const col=COLORS[i%COLORS.length];
+    const el=document.createElement('div');
+    el.className='glyph-item';
+    el.textContent=item.g;
+    el.style.left=pos.x+'%';
+    el.style.top=pos.y+'%';
+    const stage=STAGES[stageIdx];
+    const fsize = stage==='letters'?26+Math.random()*16: stage==='syllables'?20+Math.random()*12: stage==='words'?16+Math.random()*8:14;
+    el.style.fontSize=fsize+'px';
+    if(item.ok){
+      el.style.background=col.bg; el.style.color=col.c; el.style.borderColor=col.b;
+    } else {
+      const h=Math.floor(Math.random()*50);
+      el.style.background=`hsl(${h},58%,36%)`; el.style.color='white'; el.style.borderColor=`hsl(${h},68%,26%)`;
+    }
+    el.addEventListener('click',()=>onClickGlyph(el,item.g,item.ok));
+    layer.appendChild(el);
+    screenItems.push({el,glyph:item.g,isCorrect:item.ok});
+  });
+
+  // Speak after short delay
+  setTimeout(speakTarget, 300);
+}
+
+// ╔══════════════════════════════════════════════════════╗
+// ║              CLICK HANDLER                           ║
+// ╚══════════════════════════════════════════════════════╝
+
+function onClickGlyph(el, glyph, isCorrect){
+  speak(glyph);
+  const key=currentItem.target;
+
+  if(isCorrect){
+    el.classList.add('anim-correct');
+    foundCount++; score+=10;
+    getPerf(key).correct++;
+    getPerf(key).lastSeen=totalLevels;
+    spawnStar(el);
+    updateHUD();
+    // Add candy when item is freshly mastered
+    if(getPerf(key).correct === 4) addCandy();
+    const msgs=['כל הכבוד! 🌟','מצוין! ✨','נכון! 🎉','יופי! 💫','אלוף! 🦉','סוּפֶּר! 🌿'];
+    showFeedback('correct',msgs[Math.floor(Math.random()*msgs.length)],'⭐');
+    if(foundCount>=neededCount) setTimeout(showLevelComplete,750);
+  } else {
+    el.classList.add('anim-wrong');
+    hearts=Math.max(0,hearts-1);
+    wrongCountThisLevel++;
+    getPerf(key).wrong++;
+    updateHUD();
+    showFeedback('wrong','לא זה... 🦊 נסה שוב!','❌');
+    setTimeout(()=>el.classList.remove('anim-wrong'),450);
+
+    // After 2 wrong: reveal hint
+    if(wrongCountThisLevel>=2 && !hintShown){
+      hintShown=true;
+      setTimeout(revealHint,500);
+    }
+    if(hearts===0) setTimeout(showGameOver,600);
+  }
+  updateTracker();
+}
+
+function revealHint(){
+  // Show the target char in HUD
+  const ch=document.getElementById('target-char');
+  ch.className=''; // remove hidden-mode
+  const hi=document.getElementById('hint-indicator');
+  hi.className='visible';
+
+  // Show hint popup briefly
+  const hr=document.getElementById('hint-reveal');
+  document.getElementById('hint-reveal-char').textContent=currentItem.target;
+  document.getElementById('hint-reveal-text').textContent='הנה הרמז! עכשיו מצא אותו ביער! 🌲';
+  hr.classList.add('show');
+  speakTarget();
+  setTimeout(()=>hr.classList.remove('show'),2200);
+}
+
+// ╔══════════════════════════════════════════════════════╗
+// ║              UI HELPERS                              ║
+// ╚══════════════════════════════════════════════════════╝
+
+function updateHUD(){
+  document.getElementById('score-disp').textContent=`⭐ ${score}`;
+  document.getElementById('hearts-disp').textContent='❤️'.repeat(hearts)+'🖤'.repeat(Math.max(0,3-hearts));
+  document.getElementById('found-txt').textContent=`מצאת ${foundCount}/${neededCount}`;
+  document.getElementById('prog-bar').style.width=(foundCount/neededCount*100)+'%';
+  updateCandyJar();
+}
+
+// ── Growing Tree ──
+const TREE_STAGES = [
+  { name:'זֶרַע 🌱',  minPct:0,    trunkH:6,  foliageLayers:0, fruits:0 },
+  { name:'שֶׁתִיל 🌿', minPct:0.08, trunkH:14, foliageLayers:1, fruits:0 },
+  { name:'עֵץ קָטָן 🌲',minPct:0.22, trunkH:28, foliageLayers:2, fruits:0 },
+  { name:'עֵץ גָּדֵל 🌳',minPct:0.40, trunkH:42, foliageLayers:3, fruits:2 },
+  { name:'עֵץ שָׁלֵם 🌳',minPct:0.60, trunkH:55, foliageLayers:4, fruits:5 },
+  { name:'עֵץ פּוֹרֵחַ 🌸',minPct:0.80, trunkH:65, foliageLayers:5, fruits:8 },
+  { name:'עֵץ הַקְּרִיאָה ✨',minPct:1.0, trunkH:72, foliageLayers:6, fruits:12 },
+];
+
+const FRUIT_COLORS = ['#e74c3c','#f39c12','#e91e63','#9b59b6','#3498db','#2ecc71','#ff6b6b','#ffd93d'];
+const LEAF_GREENS  = ['#1a5c2a','#22721e','#2e8b3f','#3a9e4a','#4ab85a','#5abf4e'];
+
+let jarTotal = 0;
+let jarEarned = 0;
+
+function initJar(){
+  const stage = STAGES[stageIdx];
+  if(stage==='letters')        jarTotal = LETTERS.length;
+  else if(stage==='syllables') jarTotal = SYLLABLE_CLUSTERS.reduce((s,c)=>s+c.letters.length,0);
+  else if(stage==='words')     jarTotal = WORD_CLUSTERS.reduce((s,c)=>s+c.items.length,0);
+  else jarTotal = 8;
+  jarEarned = Object.values(perf).filter(p=>p.correct>=4).length;
+  renderTree(false);
+}
+
+function addCandy(){
+  jarEarned = Math.min(jarEarned+1, jarTotal);
+  renderTree(true);
+}
+
+function renderTree(animate){
+  const pct = jarTotal > 0 ? jarEarned / jarTotal : 0;
+
+  // Pick tree growth stage
+  let ts = TREE_STAGES[0];
+  for(const s of TREE_STAGES){ if(pct >= s.minPct) ts = s; }
+
+  const svg = document.getElementById('tree-svg');
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // Trunk
+  const trunk = document.getElementById('tree-trunk');
+  const trunkY = 122 - ts.trunkH;
+  trunk.setAttribute('y', trunkY);
+  trunk.setAttribute('height', ts.trunkH);
+
+  // Branches
+  const branchG = document.getElementById('tree-branches');
+  branchG.innerHTML = '';
+  if(ts.foliageLayers >= 2){
+    // left branch
+    const bl = document.createElementNS(NS,'line');
+    bl.setAttribute('x1','30'); bl.setAttribute('y1', trunkY+ts.trunkH*0.45);
+    bl.setAttribute('x2','14'); bl.setAttribute('y2', trunkY+ts.trunkH*0.25);
+    bl.setAttribute('stroke','#5a2e0a'); bl.setAttribute('stroke-width','3');
+    bl.setAttribute('stroke-linecap','round');
+    branchG.appendChild(bl);
+    // right branch
+    const br = document.createElementNS(NS,'line');
+    br.setAttribute('x1','30'); br.setAttribute('y1', trunkY+ts.trunkH*0.45);
+    br.setAttribute('x2','46'); br.setAttribute('y2', trunkY+ts.trunkH*0.25);
+    br.setAttribute('stroke','#5a2e0a'); br.setAttribute('stroke-width','3');
+    br.setAttribute('stroke-linecap','round');
+    branchG.appendChild(br);
+  }
+  if(ts.foliageLayers >= 4){
+    const bl2 = document.createElementNS(NS,'line');
+    bl2.setAttribute('x1','30'); bl2.setAttribute('y1', trunkY+ts.trunkH*0.65);
+    bl2.setAttribute('x2','10'); bl2.setAttribute('y2', trunkY+ts.trunkH*0.55);
+    bl2.setAttribute('stroke','#5a2e0a'); bl2.setAttribute('stroke-width','2');
+    bl2.setAttribute('stroke-linecap','round');
+    branchG.appendChild(bl2);
+    const br2 = document.createElementNS(NS,'line');
+    br2.setAttribute('x1','30'); br2.setAttribute('y1', trunkY+ts.trunkH*0.65);
+    br2.setAttribute('x2','50'); br2.setAttribute('y2', trunkY+ts.trunkH*0.55);
+    br2.setAttribute('stroke','#5a2e0a'); br2.setAttribute('stroke-width','2');
+    br2.setAttribute('stroke-linecap','round');
+    branchG.appendChild(br2);
+  }
+
+  // Foliage layers (bottom to top = larger to smaller)
+  const foliageG = document.getElementById('tree-foliage');
+  foliageG.innerHTML = '';
+  const layerDefs = [
+    {cx:30, cy:0,  rx:22, ry:18},
+    {cx:30, cy:-14,rx:18, ry:15},
+    {cx:30, cy:-26,rx:15, ry:12},
+    {cx:30, cy:-36,rx:12, ry:10},
+    {cx:30, cy:-44,rx:9,  ry:8},
+    {cx:30, cy:-52,rx:7,  ry:6},
+  ];
+  for(let i=0; i<ts.foliageLayers && i<layerDefs.length; i++){
+    const ld = layerDefs[i];
+    const baseY = trunkY + 4;
+    const el = document.createElementNS(NS,'ellipse');
+    el.setAttribute('cx', ld.cx);
+    el.setAttribute('cy', baseY + ld.cy);
+    el.setAttribute('rx', ld.rx);
+    el.setAttribute('ry', ld.ry);
+    el.setAttribute('fill', LEAF_GREENS[i % LEAF_GREENS.length]);
+    el.setAttribute('opacity', '0.92');
+    if(animate && i === ts.foliageLayers-1) el.classList.add('leaf-new');
+    foliageG.appendChild(el);
+  }
+
+  // Fruits / stars
+  const fruitsG = document.getElementById('tree-fruits');
+  fruitsG.innerHTML = '';
+  if(ts.fruits > 0 && ts.foliageLayers >= 3){
+    const baseY = trunkY + 4;
+    // Spread fruits across the foliage
+    const fruitPositions = [
+      {x:20,dy:-8},{x:38,dy:-8},{x:16,dy:-20},{x:42,dy:-18},
+      {x:28,dy:-30},{x:36,dy:-28},{x:22,dy:-38},{x:38,dy:-40},
+      {x:28,dy:-46},{x:20,dy:-44},{x:34,dy:-50},{x:26,dy:-54},
+    ];
+    for(let i=0; i<ts.fruits && i<fruitPositions.length; i++){
+      const fp = fruitPositions[i];
+      const col = FRUIT_COLORS[i % FRUIT_COLORS.length];
+      const c = document.createElementNS(NS,'circle');
+      c.setAttribute('cx', fp.x);
+      c.setAttribute('cy', baseY + fp.dy);
+      c.setAttribute('r', '3.5');
+      c.setAttribute('fill', col);
+      c.setAttribute('opacity', '0.95');
+      fruitsG.appendChild(c);
+      // shine
+      const sh = document.createElementNS(NS,'circle');
+      sh.setAttribute('cx', fp.x-1);
+      sh.setAttribute('cy', baseY + fp.dy - 1.2);
+      sh.setAttribute('r', '1');
+      sh.setAttribute('fill', 'rgba(255,255,255,0.55)');
+      fruitsG.appendChild(sh);
+    }
+  }
+
+  // Label
+  document.getElementById('tree-stage-name').textContent = ts.name;
+}
+
+// ── Skip Stage ──
+function skipStage(){
+  if(stageIdx >= STAGES.length-1) return;
+  // Confirm with a quick overlay message baked into existing flow
+  const next = STAGES[stageIdx+1];
+  const names = {letters:'אותיות',syllables:'הברות',words:'מילים',sentences:'משפטים'};
+  if(confirm(`לדלג לשלב ${names[next]}?`)){
+    stageIdx++;
+    if(STAGES[stageIdx]==='sentences') sentenceWordCount=2;
+    hearts=3;
+    buildQueue();
+    buildLevel();
+    initJar();
+    updateHUD();
+  }
+}
+
+function updateTracker(){
+  const wrap=document.getElementById('tracker-wrap');
+  wrap.innerHTML='<span id="tracker-label">מעקב:</span>';
+  const stage=STAGES[stageIdx];
+  let items;
+  if(stage==='letters') items=LETTERS.map(l=>({key:l.char,label:l.char}));
+  else if(stage==='syllables'){
+    const seen=new Set();
+    items=SYLLABLE_CLUSTERS.flatMap(c=>c.letters).filter(s=>{if(seen.has(s))return false;seen.add(s);return true;}).map(s=>({key:s,label:s}));
+  }
+  else { wrap.innerHTML='<span id="tracker-label">שלב: '+STAGES[stageIdx]+'</span>'; return; }
+
+  items.forEach(({key,label})=>{
+    const chip=document.createElement('span');
+    chip.className='tk-chip'+(isMastered(key)?' mastered':isStruggling(key)?' struggling': currentItem&&currentItem.target===key?' current':'');
+    chip.textContent=label;
+    wrap.appendChild(chip);
+  });
+}
+
+function showFeedback(type,text,emoji){
+  const fb=document.getElementById('feedback');
+  fb.className='show '+type;
+  document.getElementById('fb-emoji').textContent=emoji;
+  document.getElementById('fb-text').textContent=text;
+  setTimeout(()=>fb.className='',1300);
+}
+
+function spawnStar(el){
+  const rect=el.getBoundingClientRect();
+  const wrap=document.getElementById('scene-wrap').getBoundingClientRect();
+  for(let i=0;i<4;i++){
+    const s=document.createElement('div');
+    s.className='star-burst';
+    s.textContent=['⭐','✨','🌟','💫'][Math.floor(Math.random()*4)];
+    s.style.left=(rect.left-wrap.left+rect.width/2)+'px';
+    s.style.top=(rect.top-wrap.top)+'px';
+    const bx=(Math.random()-0.5)*80+'px';
+    const by=(-20-Math.random()*50)+'px';
+    s.style.setProperty('--bx',bx);
+    s.style.setProperty('--by',by);
+    s.style.animationDelay=(i*0.1)+'s';
+    document.getElementById('scene-wrap').appendChild(s);
+    setTimeout(()=>s.remove(),900);
+  }
+}
+
+// ╔══════════════════════════════════════════════════════╗
+// ║              LEVEL / STAGE FLOW                      ║
+// ╚══════════════════════════════════════════════════════╝
+
+function showLevelComplete(){
+  const stars=hearts===3?'⭐⭐⭐':hearts===2?'⭐⭐':'⭐';
+  document.getElementById('ov-stars').textContent=stars;
+  const key=currentItem.target;
+  const p=getPerf(key);
+  let emoji,title,msg;
+  if(wrongCountThisLevel===0){ emoji='🌟'; title='מושלם!'; }
+  else if(wrongCountThisLevel<=2){ emoji='🎉'; title='כל הכבוד!'; }
+  else { emoji='💪'; title='עשית את זה!'; }
+  msg = isMastered(key) ? `"${key}" — שולט מצוין! ✅` : `"${key}" — ${p.correct} נכון, ${p.wrong} טעויות`;
+  if(currentItem.type==='syllable'&&currentItem.clusterName) msg+= `\nקבוצה: ${currentItem.clusterName}`;
+  document.getElementById('ov-emoji').textContent=emoji;
+  document.getElementById('ov-title').textContent=title;
+  document.getElementById('ov-msg').textContent=msg;
+  hearts=3; // restore for next level
+  document.getElementById('ov-level').classList.add('show');
+}
+
+function nextLevel(){
+  document.getElementById('ov-level').classList.remove('show');
+  buildLevel();
+}
+
+function showStageTransition(){
+  const nextStage=STAGES[stageIdx+1];
+  if(!nextStage){ showAllDone(); return; }
+  const titles={syllables:'מעולה! עוברים להברות! 🍄',words:'יפה! עוברים למילים! 📖',sentences:'מדהים! עוברים למשפטים! 📜'};
+  const descs={
+    syllables:'עכשיו תמצא הברות מנוקדות ביער. הברה = אות + ניקוד יחד.',
+    words:'מעולה! עכשיו תמצא מילים שלמות. קרא בזהירות!',
+    sentences:'וואו! עכשיו תמצא משפטים שלמים. אתה כמעט קורא!'
+  };
+  document.getElementById('stage-title').textContent=titles[nextStage]||'שלב חדש!';
+  document.getElementById('stage-desc').textContent=descs[nextStage]||'';
+  document.getElementById('ov-stage').classList.add('show');
+}
+
+function dismissStageTransition(){
+  document.getElementById('ov-stage').classList.remove('show');
+  stageIdx++;
+  if(STAGES[stageIdx]==='sentences') sentenceWordCount=2;
+  buildQueue();
+  buildLevel();
+  initJar();
+}
+
+function showAllDone(){
+  document.getElementById('ov-emoji').textContent='🏆';
+  document.getElementById('ov-title').textContent='אלוף הקריאה!';
+  document.getElementById('ov-msg').textContent=`סיימת את כל השלבים!\nניקוד: ${score} ⭐\nאתה קורא ביער! 🌲`;
+  document.getElementById('ov-stars').textContent='🏆🏆🏆';
+  document.getElementById('ov-level').classList.add('show');
+}
+
+function showGameOver(){
+  document.getElementById('ov-gameover').classList.add('show');
+}
+
+function startGame(){
+  document.getElementById('ov-welcome').classList.remove('show');
+  initJar();
+  setTimeout(speakTarget, 400);
+}
+
+function restartGame(){
+  document.getElementById('ov-gameover').classList.remove('show');
+  stageIdx=0; score=0; hearts=3; totalLevels=0;
+  Object.keys(perf).forEach(k=>delete perf[k]);
+  buildQueue(); buildLevel(); initJar(); updateHUD();
+  setTimeout(speakTarget, 300);
+}
+
+// ╔══════════════════════════════════════════════════════╗
+// ║   SPEECH — Google Translate TTS (cross-platform)    ║
+// ╚══════════════════════════════════════════════════════╝
+
+let _audioEl = null;
+
+function speak(text){
+  if(!_audioEl){
+    _audioEl = new Audio();
+    _audioEl.crossOrigin = 'anonymous';
+  }
+  _audioEl.pause();
+  const encoded = encodeURIComponent(text);
+  // Google Translate TTS — works on all browsers/devices, no key needed
+  _audioEl.src = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encoded}&tl=he&client=gtx&ttsspeed=0.7`;
+  _audioEl.volume = 1.0;
+  _audioEl.play().catch(() => {
+    // Fallback to Web Speech API if Google TTS blocked
+    _wsSpeakFallback(text);
+  });
+}
+
+function _wsSpeakFallback(text){
+  if(!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const voices = window.speechSynthesis.getVoices();
+  const he = voices.find(v => v.lang && v.lang.startsWith('he')) || voices[0];
+  if(he) u.voice = he;
+  u.lang = 'he-IL'; u.rate = 0.7; u.volume = 1.0;
+  window.speechSynthesis.speak(u);
+}
+
+function speakTarget(){
+  if(currentItem) speak(currentItem.speak || currentItem.target);
+}
+
+if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+
+// ╔══════════════════════════════════════════════════════╗
+// ║              FIREFLIES                               ║
+// ╚══════════════════════════════════════════════════════╝
+
+function initFireflies(){
+  const wrap=document.getElementById('scene-wrap');
+  const c=document.getElementById('firefly-canvas');
+  function resize(){ c.width=wrap.offsetWidth; c.height=wrap.offsetHeight; }
+  resize(); window.addEventListener('resize',resize);
+  const flies=Array.from({length:24},()=>({
+    x:Math.random()*wrap.offsetWidth,
+    y:60+Math.random()*320,
+    vx:(Math.random()-.5)*.55, vy:(Math.random()-.5)*.45,
+    phase:Math.random()*Math.PI*2,
+    speed:.012+Math.random()*.014,
+    r:1.4+Math.random()*2,
+  }));
+  const ctx=c.getContext('2d');
+  (function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    flies.forEach(f=>{
+      f.phase+=f.speed; f.x+=f.vx; f.y+=f.vy;
+      if(f.x<0||f.x>c.width) f.vx*=-1;
+      if(f.y<55||f.y>390) f.vy*=-1;
+      const g2=Math.sin(f.phase)*.5+.5;
+      ctx.globalAlpha=.25+g2*.7;
+      const grd=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,f.r*7);
+      grd.addColorStop(0,'rgba(200,255,110,.9)');
+      grd.addColorStop(1,'rgba(200,255,110,0)');
+      ctx.fillStyle=grd;
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r*7,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=.7+g2*.3;
+      ctx.fillStyle='#c8ff6e';
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    requestAnimationFrame(draw);
+  })();
+}
+
+// ╔══════════════════════════════════════════════════════╗
+// ║              INIT                                    ║
+// ╚══════════════════════════════════════════════════════╝
+
+window.addEventListener('load',()=>{
+  buildQueue();
+  buildLevel();
+  updateHUD();
+  initFireflies();
+});
+</script>
+</body>
+</html>
